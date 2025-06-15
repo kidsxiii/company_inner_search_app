@@ -102,42 +102,39 @@ def initialize_retriever():
     """
     画面読み込み時にRAGのRetriever（ベクターストアから検索するオブジェクト）を作成
     """
-    # ロガーを読み込むことで、後続の処理中に発生したエラーなどがログファイルに記録される
     logger = logging.getLogger(ct.LOGGER_NAME)
 
-    # すでにRetrieverが作成済みの場合、後続の処理を中断
     if "retriever" in st.session_state:
         return
     
-    # RAGの参照先となるデータソースの読み込み
     docs_all = load_data_sources()
 
-    # OSがWindowsの場合、Unicode正規化と、cp932（Windows用の文字コード）で表現できない文字を除去
     for doc in docs_all:
         doc.page_content = adjust_string(doc.page_content)
         for key in doc.metadata:
             doc.metadata[key] = adjust_string(doc.metadata[key])
     
-    # 埋め込みモデルの用意
     embeddings = OpenAIEmbeddings()
     
-    # チャンク分割用のオブジェクトを作成
+    
+# チャンク分割用のオブジェクトを作成
 text_splitter = CharacterTextSplitter(
-    separator="\n",
-    chunk_size=ct.CHUNK_SIZE,
-    chunk_overlap=ct.CHUNK_OVERLAP,
-    length_function=len
-)
+        separator="\n",
+        chunk_size=ct.CHUNK_SIZE,
+        chunk_overlap=ct.CHUNK_OVERLAP,
+        length_function=len
+    )
+
 
 splitted_docs = text_splitter.split_documents(docs_all)
 
 retriever = vectorstore.as_retriever(search_kwargs={"k": ct.TOP_K})
 
-    # ベクターストアの作成
-    db = Chroma.from_documents(splitted_docs, embedding=embeddings)
+# ベクターストアの作成
+db = Chroma.from_documents(splitted_docs, embedding=embeddings)
 
-    # ベクターストアを検索するRetrieverの作成
-    st.session_state.retriever = db.as_retriever(search_kwargs={"k": 5})
+# ベクターストアを検索するRetrieverの作成
+st.session_state.retriever = db.as_retriever(search_kwargs={"k": 5})
 
 
 def initialize_session_state():
