@@ -23,40 +23,40 @@ def display_app_title():
 
 def display_select_mode():
     """
-    回答モードのラジオボタンを表示
+    利用目的のラジオボタン表示
     """
-    # 回答モードを選択する用のラジオボタンを表示
-    col1, col2 = st.columns([100, 1])
-    with col1:
-        # 「label_visibility="collapsed"」とすることで、ラジオボタンを非表示にする
-        st.session_state.mode = st.radio(
-            label="",
-            options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
-            label_visibility="collapsed"
-        )
+    st.sidebar.markdown("## 利用目的")
+    st.session_state.mode = st.sidebar.radio(
+        label="",
+        options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
+        key="mode_radio"
+    )
+
+    st.sidebar.markdown("### 【「社内文書検索」を選択した場合】")
+    st.sidebar.info("入力内容と関連性が高い社内文書のありかを検索できます。")
+    st.sidebar.code("【入力例】\n社員の育成方針に関するMTGの議事録", wrap_lines=True, language=None)
+
+    st.sidebar.markdown("### 【「社内問い合わせ」を選択した場合】")
+    st.sidebar.info("質問・要望に対して、社内文書の情報をもとに回答を得られます。")
+    st.sidebar.code("【入力例】\n人事部に所属している従業員情報を一覧化して", wrap_lines=True, language=None)
+
 
 
 def display_initial_ai_message():
-    # 初期表示されるAIメッセージ（説明と注意喚起の2つ）
+    """
+    初期表示時に表示されるAIメッセージ
+    """
     with st.chat_message("assistant"):
-        st.markdown(
-            "こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。"
+        # 緑背景 + チャットアイコン付きのメッセージ
+        st.success(
+            f"{ct.DOC_SOURCE_ICON} こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。"
             "サイドバーで利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。"
         )
-        st.info("具体的に入力したほうが期待通りの回答を得やすいです。", icon="⚠️")
 
-        # 「社内文書検索」の機能説明
-        st.markdown("**【「社内文書検索」を選択した場合】**")
-        # 「st.info()」を使うと青枠で表示される
-        st.info("入力内容と関連性が高い社内文書のありかを検索できます。")
-        # 「st.code()」を使うとコードブロックの装飾で表示される
-        # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
-        st.code("【入力例】\n社員の育成方針に関するMTGの議事録", wrap_lines=True, language=None)
-
-        # 「社内問い合わせ」の機能説明
-        st.markdown("**【「社内問い合わせ」を選択した場合】**")
-        st.info("質問・要望に対して、社内文書の情報をもとに回答を得られます。")
-        st.code("【入力例】\n人事部に所属している従業員情報を一覧化して", wrap_lines=True, language=None)
+    # 黄色背景 + 警告アイコン付きの補足メッセージ
+    st.warning(
+        f"{ct.WARNING_ICON} **具体的に入力したほうが期待通りの回答を得やすいです。**"
+    )
 
 
 def display_conversation_log():
@@ -157,11 +157,11 @@ def display_search_llm_response(llm_response):
         # 参照元のありかに応じて、適したアイコンを取得
         icon = utils.get_source_icon(main_file_path)
         # ページ番号が取得できた場合のみ、ページ番号を表示（ドキュメントによっては取得できない場合がある）
-        if "page" in llm_response["context"][0].metadata:
+        if main_file_path.endswith(".pdf") and "page" in llm_response["context"][0].metadata:
             # ページ番号を取得
             main_page_number = llm_response["context"][0].metadata["page"]
-            # 「メインドキュメントのファイルパス」と「ページ番号」を表示
-            st.success(f"{main_file_path}", icon=icon)
+            st.success(f"{main_file_path} （ページNo.{main_page_number + 1}）", icon=icon)
+
         else:
             # 「メインドキュメントのファイルパス」を表示
             st.success(f"{main_file_path}", icon=icon)
@@ -214,10 +214,9 @@ def display_search_llm_response(llm_response):
             for sub_choice in sub_choices:
                 # 参照元のありかに応じて、適したアイコンを取得
                 icon = utils.get_source_icon(sub_choice['source'])
-                # ページ番号が取得できない場合のための分岐処理
-                if "page_number" in sub_choice:
-                    # 「サブドキュメントのファイルパス」と「ページ番号」を表示
-                    st.info(f"{sub_choice['source']}", icon=icon)
+                # ページ番号が取得できない場合のための分岐処理（.pdfのときのみページ番号追加）
+                if sub_choice['source'].endswith(".pdf") and "page_number" in sub_choice:
+                    st.info(f"{sub_choice['source']} （ページNo.{sub_choice['page_number'] + 1}）", icon=icon)
                 else:
                     # 「サブドキュメントのファイルパス」を表示
                     st.info(f"{sub_choice['source']}", icon=icon)
@@ -296,8 +295,11 @@ def display_contact_llm_response(llm_response):
             if "page" in document.metadata:
                 # ページ番号を取得
                 page_number = document.metadata["page"]
-                # 「ファイルパス」と「ページ番号」
-                file_info = f"{file_path}"
+                # .pdfファイルの場合のみページ番号を併記
+                if file_path.endswith(".pdf"):
+                    file_info = f"{file_path} （ページNo.{page_number + 1}）"
+                else:
+                    file_info = f"{file_path}"
             else:
                 # 「ファイルパス」のみ
                 file_info = f"{file_path}"

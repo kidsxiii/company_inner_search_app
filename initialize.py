@@ -106,35 +106,36 @@ def initialize_retriever():
 
     if "retriever" in st.session_state:
         return
-    
+
+    # RAGの参照先となるデータソースの読み込み
     docs_all = load_data_sources()
 
+    # 文字調整（Windows向け）
     for doc in docs_all:
         doc.page_content = adjust_string(doc.page_content)
         for key in doc.metadata:
             doc.metadata[key] = adjust_string(doc.metadata[key])
-    
+
+    # 埋め込みモデルの用意
     embeddings = OpenAIEmbeddings()
-    
-    
-# チャンク分割用のオブジェクトを作成
-text_splitter = CharacterTextSplitter(
+
+    # チャンク分割用のオブジェクトを作成
+    text_splitter = CharacterTextSplitter(
         separator="\n",
         chunk_size=ct.CHUNK_SIZE,
         chunk_overlap=ct.CHUNK_OVERLAP,
         length_function=len
     )
 
+    # チャンク分割の実行
+    splitted_docs = text_splitter.split_documents(docs_all)
 
-splitted_docs = text_splitter.split_documents(docs_all)
+    # ベクターストアの作成
+    db = Chroma.from_documents(splitted_docs, embedding=embeddings)
 
-retriever = vectorstore.as_retriever(search_kwargs={"k": ct.TOP_K})
+    # Retriever の作成とセッション状態への保存
+    st.session_state.retriever = db.as_retriever(search_kwargs={"k": ct.TOP_K})
 
-# ベクターストアの作成
-db = Chroma.from_documents(splitted_docs, embedding=embeddings)
-
-# ベクターストアを検索するRetrieverの作成
-st.session_state.retriever = db.as_retriever(search_kwargs={"k": 5})
 
 
 def initialize_session_state():
